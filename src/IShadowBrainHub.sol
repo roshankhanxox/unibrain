@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.24;
 
 interface IShadowBrainHub {
     struct AutomatedCall {
         address target;
-        bytes data;
+        bytes callData;
         uint256 value;
         bool enabled;
     }
 
-    event CallExecuted(uint256 indexed callId, address indexed target, bool success);
-    event CallRegistered(uint256 indexed callId, address indexed target);
-    event CallUpdated(uint256 indexed callId, bool enabled);
+    function setShadowBrainHook(address hook) external;
+    function shadowBrainHook() external view returns (address);
 
-    function registerCall(address target, bytes calldata data, uint256 value) external returns (uint256);
-    function updateCall(uint256 callId, bool enabled) external;
+    function registerCall(address target, bytes calldata callData, uint256 value) external returns (uint256 id);
+    function updateCall(uint256 id, bool enabled) external;
+    function getCall(uint256 id) external view returns (AutomatedCall memory);
+    function callsCount() external view returns (uint256);
+
     function executeCalls() external;
-    function getCall(uint256 callId) external view returns (AutomatedCall memory);
 }
+
+

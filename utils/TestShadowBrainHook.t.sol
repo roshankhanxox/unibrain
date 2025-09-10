@@ -14,6 +14,7 @@ import {ShadowBrainHub} from "../src/ShadowBrainHub.sol";
 import {IShadowBrainHub} from "../src/IShadowBrainHub.sol";
 import {SwapParams, ModifyLiquidityParams} from "v4-core/types/PoolOperation.sol";
 import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
+import {console} from "forge-std/console.sol";
 
 contract MockTarget {
     uint256 public counter;
@@ -171,6 +172,7 @@ contract TestShadowBrainHook is Test, Deployers {
 
     function testAuctionCycle() public {
         uint256 initialCounter = target.counter();
+        console.log("Initial counter:", initialCounter);
 
         PoolSwapTest.TestSettings memory testSettings = PoolSwapTest
             .TestSettings({takeClaims: false, settleUsingBurn: false});
@@ -182,6 +184,7 @@ contract TestShadowBrainHook is Test, Deployers {
             sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
         });
         swapRouter.swap(poolKey, params1, testSettings, ZERO_BYTES);
+        console.log("Counter after first swap:", target.counter());
         assertEq(target.counter(), initialCounter + 1);
 
         // Immediate second swap shouldn't trigger (still in same auction)
@@ -191,15 +194,50 @@ contract TestShadowBrainHook is Test, Deployers {
             sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
         });
         swapRouter.swap(poolKey, params2, testSettings, ZERO_BYTES);
-        assertEq(target.counter(), initialCounter + 1);
+        console.log("Counter after second swap:", target.counter());
+        assertEq(target.counter(), initialCounter + 1); // This assertion will fail
 
         // Fast forward past auction interval
         vm.warp(block.timestamp + AUCTION_INTERVAL + 1);
+        console.log("Time warped past auction interval");
 
         // Next swap should trigger new execution
         swapRouter.swap(poolKey, params1, testSettings, ZERO_BYTES);
+        console.log("Counter after third swap:", target.counter());
         assertEq(target.counter(), initialCounter + 2);
     }
+
+    // function testAuctionCycle() public {
+    //     uint256 initialCounter = target.counter();
+
+    //     PoolSwapTest.TestSettings memory testSettings = PoolSwapTest
+    //         .TestSettings({takeClaims: false, settleUsingBurn: false});
+
+    //     // First swap triggers execution
+    //     SwapParams memory params1 = SwapParams({
+    //         zeroForOne: true,
+    //         amountSpecified: -0.1 ether,
+    //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+    //     });
+    //     swapRouter.swap(poolKey, params1, testSettings, ZERO_BYTES);
+    //     assertEq(target.counter(), initialCounter + 1);
+
+    //     // Immediate second swap shouldn't trigger (still in same auction)
+    //     SwapParams memory params2 = SwapParams({
+    //         zeroForOne: false,
+    //         amountSpecified: -0.1 ether,
+    //         sqrtPriceLimitX96: TickMath.MAX_SQRT_PRICE - 1
+    //     });
+    //     swapRouter.swap(poolKey, params2, testSettings, ZERO_BYTES);
+    //     assertEq(target.counter(), initialCounter + 1);
+
+    //     // Fast forward past auction interval
+    //     vm.warp(block.timestamp + AUCTION_INTERVAL + 1);
+
+    //     // Next swap should trigger new execution
+    //     swapRouter.swap(poolKey, params1, testSettings, ZERO_BYTES);
+    //     assertEq(target.counter(), initialCounter + 2);
+    // }
 
     function testDisableAutomatedCall() public {
         // Disable the call
